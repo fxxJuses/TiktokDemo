@@ -54,3 +54,15 @@ func SumCommentCountByVideoId(videoId int64) int64 {
 	result := Db.Table("comments").Where("video_id = ?", videoId).Where(&models.Comment{Delete: 0}).Find(&[]models.Comment{})
 	return result.RowsAffected
 }
+
+func FindLikesByVideoId(videoId int64) ([]models.Like, error) {
+	var likes []models.Like
+	result := Db.Table("likes").Where("video_id = ?", videoId).Where("cancel = ? ", 1).Find(&likes)
+	return likes, result.Error
+}
+
+func FindLikesByUserId(userId int64) ([]models.Like, error) {
+	var likes []models.Like
+	result := Db.Table("likes").Where("user_id = ?", userId).Where("cancel = ? ", 1).Find(&likes)
+	return likes, result.Error
+}

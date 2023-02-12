@@ -31,3 +31,9 @@ func FindVideoByVideoId(videoId int64) models.VideoTable {
 	Db.Table("videos").First(&video, "id = ?", videoId)
 	return video
 }
+
+func GetVideosByVideoIds(videoIds []int64, videos *[]models.Video) error {
+
+	err := Db.Table("videos").Find(&videos, videoIds).Error
+	return err
+}

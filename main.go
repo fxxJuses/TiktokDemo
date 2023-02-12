@@ -2,14 +2,17 @@ package main
 
 import (
 	"douyin/dao"
+	"douyin/middleware/rabbitMQ"
+	"douyin/middleware/redis"
 	"douyin/service"
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
 func main() {
 	initDeps()
 
-	//go service.RunMessageServer()
+	go service.RunMessageServer()
 
 	r := gin.Default()
 
@@ -24,4 +27,10 @@ func main() {
 func initDeps() {
 	dao.InitDao()
 	service.InitFtp()
+	err := redis.InitClient()
+	if err != nil {
+		log.Println("redis init falied, please check your redis conf")
+		return
+	}
+	rabbitMQ.InitRabbitMQ()
 }

@@ -9,6 +9,17 @@ import (
 	"strconv"
 )
 
+/*
+*
+点赞系统需要考虑：
+
+	1、Redis 采用 bitmap 还是 set来存储 点赞信息。 -----》 set适合小访问量 ， bitmap 适合百万级别的访问量（经验值）
+	2、点赞需要考虑两种信息：
+		2.1 视频的点赞信息，有哪些用户点赞了该视频
+		2.2 用户的点赞信息，该用户点赞了哪些视频
+		基于以上两种信息，就要考虑是分库还是两种信息混合存储，除此之外 还要考虑事务的一致性
+	3、 Redis持久化方法。
+*/
 func FavoriteAction(c *gin.Context) {
 	/*
 		要处理的几件事情：
@@ -29,7 +40,7 @@ func FavoriteAction(c *gin.Context) {
 	log.Println("action:", action)
 	videoIdString := c.Query("video_id")
 
-	videoId, _ := strconv.Atoi(videoIdString)
+	videoId, _ := strconv.ParseInt(videoIdString, 10, 64)
 
 	// 获取用户ID
 	usi := service.UserServiceImpl{}
@@ -37,35 +48,44 @@ func FavoriteAction(c *gin.Context) {
 	userId := user.Id
 
 	lsi := service.LikeServiceImpl{}
-	vsi := service.VideoServiceImpl{}
+	//vsi := service.VideoServiceImpl{}
+
+	err := lsi.LikeAction(videoId, userId, action)
+
+	if err == models.ErrLikeAction {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: models.ErrLikeActionCode,
+			StatusMsg:  "the like action is wrong",
+		})
+	}
 
 	// 根据 action 的值来判断是否需要进行操作
-	like := models.Like{
-		UserId:  userId,
-		VideoId: int64(videoId),
-		Cancel:  action,
-	}
-	exist := lsi.FindLike(&like)
-	log.Println(like)
-	if !exist && action != 2 {
-		// 数据不存在 并且表示喜欢
-		log.Println("No like data")
-		err := lsi.CreateLike(&like)
-		if err != nil {
-			c.JSON(http.StatusOK, models.Response{StatusCode: 1, StatusMsg: "Create like failed"})
-			return
-		}
-	} else {
-		like.Cancel = action
-		err := lsi.UpdateLike(&like)
-		if err != nil {
-			c.JSON(http.StatusOK, models.Response{StatusCode: 1, StatusMsg: "Update like failed"})
-			return
-		}
-	}
+	//like := models.Like{
+	//	UserId:  userId,
+	//	VideoId: int64(videoId),
+	//	Cancel:  action,
+	//}
+	//exist := lsi.FindLike(&like)
+	//log.Println(like)
+	//if !exist && action != 2 {
+	//	// 数据不存在 并且表示喜欢
+	//	log.Println("No like data")
+	//	err := lsi.CreateLike(&like)
+	//	if err != nil {
+	//		c.JSON(http.StatusOK, models.Response{StatusCode: 1, StatusMsg: "Create like failed"})
+	//		return
+	//	}
+	//} else {
+	//	like.Cancel = action
+	//	err := lsi.UpdateLike(&like)
+	//	if err != nil {
+	//		c.JSON(http.StatusOK, models.Response{StatusCode: 1, StatusMsg: "Update like failed"})
+	//		return
+	//	}
+	//}
 
 	// TODO 这个操作可以进行优化
-	vsi.UpdateFavoriteByVideoId(int64(videoId))
+	//vsi.UpdateFavoriteByVideoId(int64(videoId))
 
 	c.JSON(http.StatusOK, models.Response{StatusCode: 0})
 }
@@ -73,27 +93,36 @@ func FavoriteAction(c *gin.Context) {
 func FavoriteList(c *gin.Context) {
 	// TODO  鉴权
 	userId, _ := strconv.ParseInt(c.Query("user_id"), 10, 64)
-	vsi := service.VideoServiceImpl{}
-
-	videos := vsi.GetAllVideos()
 	lsi := service.LikeServiceImpl{}
-	likes := lsi.GetLikeMapByUserId(userId)
 
-	var set map[int64]struct{}
-	set = make(map[int64]struct{})
+	favoriteVideos, err := lsi.FindFavoriteVideos(userId)
+	if err != nil {
+		c.JSON(http.StatusOK, models.VideoListResponse{
+			Response: models.Response{
+				StatusCode: models.ErrReids,
+			},
+		})
+		return
+	}
 
-	for _, value := range likes {
-		set[value.VideoId] = struct{}{}
-	}
-	favoriteVideos := make([]models.Video, len(likes))
-	index := 0
-	for i := 0; i < len(videos); i++ {
-		if _, ok := set[videos[i].Id]; ok {
-			favoriteVideos[index] = videos[i]
-			index++
-		}
-	}
-	log.Println(favoriteVideos)
+	//videos := lsi.Vsi.GetAllVideos()
+	//likes := lsi.GetLikeMapByUserId(userId)
+	//
+	//var set map[int64]struct{}
+	//set = make(map[int64]struct{})
+	//
+	//for _, value := range likes {
+	//	set[value.VideoId] = struct{}{}
+	//}
+	//favoriteVideos := make([]models.Video, len(likes))
+	//index := 0
+	//for i := 0; i < len(videos); i++ {
+	//	if _, ok := set[videos[i].Id]; ok {
+	//		favoriteVideos[index] = videos[i]
+	//		index++
+	//	}
+	//}
+	//log.Println(favoriteVideos)
 	c.JSON(http.StatusOK, models.VideoListResponse{
 		Response: models.Response{
 			StatusCode: 0,

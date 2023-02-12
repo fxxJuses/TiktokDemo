@@ -39,3 +39,10 @@ func (vsi *VideoServiceImpl) FindVideoByVideoId(videoId int64) models.VideoTable
 	return videoTable
 
 }
+
+func (vsi *VideoServiceImpl) GetVideosByVideoIds(videoIds []int64) ([]models.Video, error) {
+	var videos []models.Video
+	err := dao.GetVideosByVideoIds(videoIds, &videos)
+
+	return videos, err
+}

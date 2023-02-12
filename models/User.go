@@ -9,6 +9,7 @@ type User struct {
 	FollowerCount int64  `json:"follower_count,omitempty"`
 	IsFollow      bool   `json:"is_follow,omitempty"`
 	Password      string `json:"password,omitempty"`
+	Avatar        string `json:"avatar,omitempty"`
 }
 
 type UserTable struct {
