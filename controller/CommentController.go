@@ -3,6 +3,7 @@ package controller
 import (
 	"douyin/models"
 	"douyin/service"
+	"douyin/utils"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -26,16 +27,48 @@ func CommentAction(c *gin.Context) {
 	csi := service.CommentServiceImpl{}
 	var comment models.Comment
 	// 判断 action ， action = 1 -> 评论操作 ；  action = 2 -> 删除评论操作(只有发布者和视频拥有者可以删除)
+
 	if action == 1 {
-		// 发布评论 ， 一条视频可以有多条 同一个用户发布的评论 ， 所以直接 db.save就可以了
+		// 过滤敏感词
+		hasSensitive, SensitiveText := utils.Filter.Validate(commentText)
+		if hasSensitive == false {
+			c.JSON(http.StatusOK, models.Response{
+				StatusCode: 1,
+				StatusMsg:  "(" + SensitiveText + ") 为敏感词，发表评论失败",
+			})
+			return
+		}
+
 		comment = models.Comment{
 			User:        user,
 			UserId:      user.Id,
 			VideoId:     videoId,
+			Cancel:      1,
 			Content:     commentText,
 			CreatedDate: time.Now(),
 		}
-		err := csi.SaveComment(&comment)
+		// 添加评论的操作
+		err := csi.AddComment(videoId, comment)
+		if err != nil {
+			c.JSON(http.StatusOK, models.Response{
+				StatusCode: 1,
+				StatusMsg:  "评论失败",
+			})
+
+			return
+		}
+	} else if action == 2 {
+
+		comment = models.Comment{
+			Id:      commentId,
+			User:    user,
+			UserId:  user.Id,
+			VideoId: videoId,
+			Cancel:  2,
+			Content: commentText,
+		}
+
+		err := csi.DelComment(comment)
 		if err != nil {
 			c.JSON(http.StatusOK, models.Response{
 				StatusCode: 1,
@@ -44,50 +77,8 @@ func CommentAction(c *gin.Context) {
 			return
 		}
 
-	} else {
-		// 删除评论
-		// 只有两类人能够删除评论，第一类是发布评论的人 ， 第二类是发布视频的人
-		vsi := service.VideoServiceImpl{}
-		video := vsi.FindVideoByVideoId(videoId)
-		videoAuthorId := video.AuthorId
-
-		comment, err := csi.FindCommentByCommentId(commentId)
-		if err != nil {
-			c.JSON(http.StatusOK, models.Response{
-				StatusCode: 1,
-				StatusMsg:  "评论不存在",
-			})
-			return
-		}
-
-		// 鉴权 id
-		if user.Id == comment.UserId || user.Id == videoAuthorId {
-			err := csi.DeletComment(&comment)
-			if err != nil {
-				c.JSON(http.StatusOK, models.Response{
-					StatusCode: 1,
-					StatusMsg:  "删除评论失败",
-				})
-				return
-			}
-			c.JSON(http.StatusOK, models.CommentActionResponse{
-				Response: models.Response{StatusCode: 0},
-				Comment:  comment,
-			})
-
-		} else {
-			c.JSON(http.StatusOK, models.Response{
-				StatusCode: 1,
-				StatusMsg:  "该用户没有权限删除此评论",
-			})
-			return
-		}
+		// 删除评论的操作
 	}
-
-	// 将评论数据上传至评论数据库中后， 还要需要更新video列表的评论数量
-	// TODO 这个操作后期可以放到 Feed 流中，因为其他人的操作并不会立马同步，数据还是会由前端的缓存所决定。
-	vsi := service.VideoServiceImpl{}
-	vsi.UpdateCommentCountByVideoId(videoId)
 
 	c.JSON(http.StatusOK, models.CommentActionResponse{
 		Response: models.Response{StatusCode: 0},

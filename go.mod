@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.8.2
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/google/uuid v1.3.0
+	github.com/importcjj/sensitive v0.0.0-20200106142752-42d1c505be7b
 	github.com/streadway/amqp v1.0.0
 	golang.org/x/sync v0.1.0
 	gopkg.in/dutchcoders/goftp.v1 v1.0.0-20170301105846-ed59a591ce14

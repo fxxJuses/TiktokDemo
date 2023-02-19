@@ -10,6 +10,8 @@ var RedisVideoLikeDb *redis.Client
 
 var RedisUserLikeDb *redis.Client
 
+var RedisCommentDb *redis.Client
+
 func InitClient() (err error) {
 	// 视频ID  对应 多个点赞人ID
 	RedisVideoLikeDb = redis.NewClient(&redis.Options{
@@ -42,6 +44,15 @@ func InitClient() (err error) {
 		return err
 	}
 	log.Println("redis init 1 : ", pong)
+
+	// 视频ID 对应 多个评论信息
+	RedisCommentDb = redis.NewClient(&redis.Options{
+		Addr:         config.RedisAddr,
+		Password:     config.RedisPassword,
+		DB:           2,
+		PoolSize:     config.RedisPoolSize,
+		MinIdleConns: config.MinIdleConns,
+	})
 
 	return nil
 

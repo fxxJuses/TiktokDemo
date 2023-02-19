@@ -2,6 +2,8 @@ package dao
 
 import (
 	"douyin/models"
+	"gorm.io/gorm"
+	"log"
 )
 
 func GetLikeByVideoIdAndUserId(videoId string, userId int64) models.Like {
@@ -21,9 +23,30 @@ func CheckLikeByVideoIdAndUserId(videoId string, userId int64) bool {
 }
 
 func UpdateLike(like *models.Like) error {
-	result := Db.Model(&like).Where("id = ?", like.Id).Update("Cancel", like.Cancel)
-	// db.Model(&user).Update("name", "hello")
-	return result.Error
+
+	err := Db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&like).Where("id = ?", like.Id).Update("Cancel", like.Cancel).Error; err != nil {
+			log.Println(err)
+			return err
+		}
+		// 更新videos表
+		result := tx.Table("likes").Where("video_id = ?", like.VideoId).Where("cancel = ?", 1).Find(&[]models.Like{})
+		if result.Error != nil {
+			log.Println(result.Error)
+			return result.Error
+		}
+		count := result.RowsAffected
+
+		if err := tx.Table("videos").Where("id = ?", like.VideoId).Update("favorite_count", count).Error; err != nil {
+			log.Println(err)
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func CreateLike(like *models.Like) error {
@@ -51,7 +74,7 @@ func GetLikeMapByUserId(userId int64) []models.Like {
 	return likes
 }
 func SumCommentCountByVideoId(videoId int64) int64 {
-	result := Db.Table("comments").Where("video_id = ?", videoId).Where(&models.Comment{Delete: 0}).Find(&[]models.Comment{})
+	result := Db.Table("comments").Where("video_id = ?", videoId).Where(&models.Comment{Cancel: 0}).Find(&[]models.Comment{})
 	return result.RowsAffected
 }
 

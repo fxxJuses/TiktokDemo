@@ -5,6 +5,7 @@ import (
 	"douyin/middleware/rabbitMQ"
 	"douyin/middleware/redis"
 	"douyin/service"
+	"douyin/utils"
 	"github.com/gin-gonic/gin"
 	"log"
 )
@@ -33,4 +34,6 @@ func initDeps() {
 		return
 	}
 	rabbitMQ.InitRabbitMQ()
+	// 敏感词库加载
+	utils.FilterInit()
 }

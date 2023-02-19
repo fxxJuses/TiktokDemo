@@ -33,5 +33,5 @@ func InitRabbitMQ() {
 	Rmq.conn = dial
 
 	InitLikeRabbitMQ()
-
+	InitCommentRabbitMQ()
 }
